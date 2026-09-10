@@ -19,3 +19,23 @@
 
 _ide/logs
 _ide/.wsdata
+*.rpt
+*.html
+*.pb3
+*.py
+*.idx
+*.failed
+*.hlscompile_summary
+*.hlsrun_cosim_summary
+*.hlsrun_csim_summary
+*.hlsrun_impl_summary
+*.json
+*.cmdline
+*.xml
+CG4002_HLS/CG4002_HLS/hls/impl/
+CG4002_HLS/CG4002_HLS/hls/syn/
+CG4002_HLS/CG4002_HLS/hls/csim/
+CG4002_HLS/CG4002_HLS/hls/.autopilot/db/driver/src/Makefile
+CG4002_HLS/CG4002_HLS/hls/.autopilot/
+CG4002_HLS/CG4002_HLS/hls/
+CG4002_HLS/CG4002_HLS/logs/
