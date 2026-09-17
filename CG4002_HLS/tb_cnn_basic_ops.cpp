@@ -1,5 +1,5 @@
 #include <iostream>
-#include "cnn_basic_ops.hpp"
+#include "./cnn_basic_ops.hpp"
 
 using namespace std;
 
@@ -15,10 +15,10 @@ int main() {
     // --------------------------------------------
     // Test normalize_9
     // --------------------------------------------
-    data_t in9      = {1,2,3,4,5,6,7,8,9};
-    data_t mean9    = {1,1,1,1,1,1,1,1,1};
-    data_t invstd9  = {1,1,1,1,1,1,1,1,1};
-    data_t out9;
+    data_t in9[9]      = {1,2,3,4,5,6,7,8,9};
+    data_t mean9[9]    = {1,1,1,1,1,1,1,1,1};
+    data_t invstd9[9]  = {1,1,1,1,1,1,1,1,1};
+    data_t out9[9];
 
     normalize_9(in9, mean9, invstd9, out9);
 
@@ -31,8 +31,8 @@ int main() {
     // --------------------------------------------
     // Test maxpool1d_32x50_to_32x25
     // --------------------------------------------
-    data_t mp_in;
-    data_t mp_out;
+    data_t mp_in[32][50];
+    data_t mp_out[32][25];
 
     for (int c = 0; c < 32; c++) {
         for (int t = 0; t < 50; t++) {
@@ -44,15 +44,15 @@ int main() {
 
     cout << "Testing maxpool1d_32x50_to_32x25, channel 0:" << endl;
     for (int i = 0; i < 25; i++) {
-        cout << mp_out[i] << " ";
+        cout << mp_out[0][i] << " ";
     }
     cout << endl << endl;
 
     // --------------------------------------------
     // Test global_avgpool1d_128x12_to_128
     // --------------------------------------------
-    data_t gap_in;
-    data_t gap_out;
+    data_t gap_in[128][12];
+    data_t gap_out[128];
 
     for (int c = 0; c < 128; c++) {
         for (int t = 0; t < 12; t++) {
@@ -71,10 +71,10 @@ int main() {
     // --------------------------------------------
     // Test fc_128_to_6
     // --------------------------------------------
-    data_t fc_in;
-    data_t fc_w;
-    data_t fc_b;
-    data_t fc_out;
+    data_t fc_in[128];
+    data_t fc_w[6][128];
+    data_t fc_b[6];
+    data_t fc_out[6];
 
     for (int j = 0; j < 128; j++) {
         fc_in[j] = 1.0;
@@ -98,7 +98,7 @@ int main() {
     // --------------------------------------------
     // Test argmax_6
     // --------------------------------------------
-    data_t logits = {0.1, 0.5, -0.2, 1.7, 0.9, 0.3};
+    data_t logits[6] = {0.1, 0.5, -0.2, 1.7, 0.9, 0.3};
     int pred = argmax_6(logits);
 
     cout << "Testing argmax_6:" << endl;

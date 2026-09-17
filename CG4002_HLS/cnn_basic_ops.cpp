@@ -4,36 +4,35 @@
 // ReLU
 // --------------------------------------------------
 data_t relu(data_t x) {
-    return (x > 0) ? x : data_t(0);
+    return (x > 0) ? x : (data_t)0;
 }
 
-void relu_1d_128(const data_t in, data_t out) {
+void relu_1d_128(const data_t in[128], data_t out[128]) {
 #pragma HLS INLINE off
     for (int i = 0; i < 128; i++) {
 #pragma HLS PIPELINE II=1
-        out[i] = (in[i] > 0) ? in[i] : data_t(0);
+        out[i] = (in[i] > 0) ? in[i] : (data_t)0;
     }
 }
 
-void relu_2d_32x50(const data_t in, data_t out) {
+void relu_2d_32x50(const data_t in[32][50], data_t out[32][50]) {
 #pragma HLS INLINE off
     for (int c = 0; c < 32; c++) {
         for (int t = 0; t < 50; t++) {
 #pragma HLS PIPELINE II=1
-            out[c][t] = (in[c][t] > 0) ? in[c][t] : data_t(0);
+            out[c][t] = (in[c][t] > 0) ? in[c][t] : (data_t)0;
         }
     }
 }
 
 // --------------------------------------------------
 // Normalization
-// out[i] = (in[i] - mean[i]) * inv_std[i]
 // --------------------------------------------------
 void normalize_9(
-    const data_t in,
-    const data_t mean,
-    const data_t inv_std,
-    data_t out
+    const data_t in[9],
+    const data_t mean[9],
+    const data_t inv_std[9],
+    data_t out[9]
 ) {
 #pragma HLS INLINE off
     for (int i = 0; i < 9; i++) {
@@ -43,10 +42,10 @@ void normalize_9(
 }
 
 void normalize_9x50(
-    const data_t in,
-    const data_t mean,
-    const data_t inv_std,
-    data_t out
+    const data_t in[9][50],
+    const data_t mean[9],
+    const data_t inv_std[9],
+    data_t out[9][50]
 ) {
 #pragma HLS INLINE off
     for (int c = 0; c < 9; c++) {
@@ -59,12 +58,10 @@ void normalize_9x50(
 
 // --------------------------------------------------
 // MaxPool1D: 32x50 -> 32x25
-// kernel=2, stride=2
-// out[c][i] = max(in[c][2i], in[c][2i+1])
 // --------------------------------------------------
 void maxpool1d_32x50_to_32x25(
-    const data_t in,
-    data_t out
+    const data_t in[32][50],
+    data_t out[32][25]
 ) {
 #pragma HLS INLINE off
     for (int c = 0; c < 32; c++) {
@@ -79,12 +76,10 @@ void maxpool1d_32x50_to_32x25(
 
 // --------------------------------------------------
 // MaxPool1D: 64x25 -> 64x12
-// kernel=2, stride=2
-// Uses first 24 values, ignores last if odd length
 // --------------------------------------------------
 void maxpool1d_64x25_to_64x12(
-    const data_t in,
-    data_t out
+    const data_t in[64][25],
+    data_t out[64][12]
 ) {
 #pragma HLS INLINE off
     for (int c = 0; c < 64; c++) {
@@ -99,11 +94,10 @@ void maxpool1d_64x25_to_64x12(
 
 // --------------------------------------------------
 // Global Average Pooling: 128x12 -> 128
-// out[c] = sum(in[c][0..11]) / 12
 // --------------------------------------------------
 void global_avgpool1d_128x12_to_128(
-    const data_t in,
-    data_t out
+    const data_t in[128][12],
+    data_t out[128]
 ) {
 #pragma HLS INLINE off
     const data_t inv12 = (data_t)0.0833333333333;
@@ -120,13 +114,12 @@ void global_avgpool1d_128x12_to_128(
 
 // --------------------------------------------------
 // Fully connected: 128 -> 6
-// out[i] = bias[i] + sum_j weights[i][j] * in[j]
 // --------------------------------------------------
 void fc_128_to_6(
-    const data_t in,
-    const data_t weights,
-    const data_t bias,
-    data_t out
+    const data_t in[128],
+    const data_t weights[6][128],
+    const data_t bias[6],
+    data_t out[6]
 ) {
 #pragma HLS INLINE off
     for (int i = 0; i < 6; i++) {
@@ -142,10 +135,10 @@ void fc_128_to_6(
 // --------------------------------------------------
 // Argmax over 6 values
 // --------------------------------------------------
-int argmax_6(const data_t in) {
+int argmax_6(const data_t in[6]) {
 #pragma HLS INLINE off
     int max_idx = 0;
-    data_t max_val = in;
+    data_t max_val = in[0]; // Fixed: changed from 'in' to 'in[0]'
 
     for (int i = 1; i < 6; i++) {
 #pragma HLS PIPELINE II=1
