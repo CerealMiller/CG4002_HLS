@@ -29,7 +29,6 @@ int main() {
     int total_samples = 0;
     int correct_predictions = 0;
 
-    data_t in_flat[450];
     data_t out_logits[NUM_CLASSES];
     int predicted_class = -1;
     int true_label = -1;
@@ -39,15 +38,27 @@ int main() {
     std::cout << "====================================================" << std::endl;
 
     while (file_lbl >> true_label) {
-        // Read 450 values for the single window input
+        hls::stream<axis_t> in_stream("in_stream");
+        hls::stream<axis_t> out_stream("out_stream");
+
+        // Read 450 values, cast to data_t, and write to input stream
         for (int i = 0; i < 450; i++) {
             float val;
             file_in >> val;
-            in_flat[i] = (data_t)val;
+            data_t sample = (data_t)val; // Original float-to-data_t cast
+            
+            bool is_last = (i == 449);
+            in_stream.write(data_to_axis(sample, is_last));
         }
 
-        // Run HLS Top-Level Module Inference
-        cnn_inference(in_flat, out_logits, predicted_class);
+        // Run HLS Top-Level Inference Core
+        cnn_inference(in_stream, out_stream, predicted_class);
+
+        // Read 6 output logits back from output stream
+        for (int i = 0; i < NUM_CLASSES; i++) {
+            axis_t out_pkt = out_stream.read();
+            out_logits[i] = axis_to_data(out_pkt);
+        }
 
         // Record Statistics
         if (true_label >= 0 && true_label < NUM_CLASSES) {
@@ -105,8 +116,8 @@ int main() {
 
         for (int i = 0; i < NUM_CLASSES; i++) {
             if (i != c) {
-                fp += confusion_matrix[i][c]; // False positives across column
-                fn += confusion_matrix[c][i]; // False negatives across row
+                fp += confusion_matrix[i][c];
+                fn += confusion_matrix[c][i];
             }
         }
 
@@ -122,7 +133,6 @@ int main() {
 
     std::cout << "====================================================" << std::endl;
 
-    // Standard HLS validation check pass criterion
     if (accuracy > 40.0f) {
         std::cout << "TESTBENCH PASSED!" << std::endl;
         return 0;

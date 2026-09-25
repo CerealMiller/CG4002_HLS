@@ -2,18 +2,15 @@
 #include "cnn_params.hpp"
 
 void cnn_inference(
-    const data_t in_flat[450],
-    data_t out_logits[6],
+    hls::stream<axis_t> &in_stream,
+    hls::stream<axis_t> &out_stream,
     int &predicted_class
 ) {
-    // 1. Generate standalone ap_start, ap_done, ap_idle, ap_ready wires 
-    // for your Verilog FSM to drive/monitor directly:
-    #pragma HLS INTERFACE mode=ap_ctrl_hs port=return
-
-    // 2. Generate simple data buses with valid handshakes for array I/O
-    #pragma HLS INTERFACE mode=bram port=in_flat
-    #pragma HLS INTERFACE mode=bram port=out_logits
+    // Top-Level Vivado AXI-Stream and Block Control Interfaces
+    #pragma HLS INTERFACE mode=axis port=in_stream
+    #pragma HLS INTERFACE mode=axis port=out_stream
     #pragma HLS INTERFACE mode=ap_vld port=predicted_class
+    #pragma HLS INTERFACE mode=ap_ctrl_hs port=return
 
     // Intermediate Buffers
     data_t input_2d[9][50];
@@ -34,12 +31,14 @@ void cnn_inference(
     data_t relu3_out[128][12];
 
     data_t gap_out[128];
+    data_t out_logits[6];
 
-    // Reshape Flat Input (450) -> [9][50] (channel-major required by Conv1D)
+    // Stream in 450 samples -> Reconstruct [9][50] array (t * 9 + c)
     for (int t = 0; t < 50; t++) {
         for (int c = 0; c < 9; c++) {
 #pragma HLS PIPELINE II=1
-            input_2d[c][t] = in_flat[t * 9 + c];
+            axis_t in_pkt = in_stream.read();
+            input_2d[c][t] = axis_to_data(in_pkt);
         }
     }
 
@@ -67,4 +66,11 @@ void cnn_inference(
     global_avgpool1d_128x12_to_128(relu3_out, gap_out);
     fc_128_to_6(gap_out, fc_weight, fc_bias, out_logits);
     predicted_class = argmax_6(out_logits);
+
+    // Stream out 6 Output Logits
+    for (int i = 0; i < 6; i++) {
+#pragma HLS PIPELINE II=1
+        bool is_last = (i == 5);
+        out_stream.write(data_to_axis(out_logits[i], is_last));
+    }
 }
