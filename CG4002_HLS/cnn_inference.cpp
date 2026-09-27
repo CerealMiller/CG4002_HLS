@@ -33,12 +33,17 @@ void cnn_inference(
     data_t gap_out[128];
     data_t out_logits[6];
 
-    // Stream in 450 samples -> Reconstruct [9][50] array (t * 9 + c)
-    for (int t = 0; t < 50; t++) {
+    #pragma HLS ARRAY_PARTITION variable=input_2d dim=1 complete
+
+    // Stream in 450 samples (Interleaved: 50 time steps x 9 channels)
+    read_input_loop: for (int t = 0; t < 50; t++) {
         for (int c = 0; c < 9; c++) {
-#pragma HLS PIPELINE II=1
+    #pragma HLS PIPELINE II=1 rewind
             axis_t in_pkt = in_stream.read();
-            input_2d[c][t] = axis_to_data(in_pkt);
+        
+            // Store raw data
+            data_t raw_val = axis_to_data(in_pkt);
+            input_2d[c][t] = raw_val;
         }
     }
 

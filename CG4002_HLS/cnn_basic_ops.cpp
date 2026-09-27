@@ -144,7 +144,7 @@ void conv1d_9_32_k5_l50(
     for (int oc = 0; oc < 32; oc++) {
         for (int t = 0; t < 50; t++) {
 #pragma HLS PIPELINE II=1
-            data_t sum = bias[oc];
+            acc_t sum = bias[oc];
 
             for (int ic = 0; ic < 9; ic++) {
                 for (int k = 0; k < 5; k++) {
@@ -159,7 +159,7 @@ void conv1d_9_32_k5_l50(
                 }
             }
 
-            out[oc][t] = sum;
+            out[oc][t] = (data_t)sum;
         }
     }
 }
@@ -179,7 +179,7 @@ void conv1d_32_64_k5_l25(
     for (int oc = 0; oc < 64; oc++) {
         for (int t = 0; t < 25; t++) {
 #pragma HLS PIPELINE II=1
-            data_t sum = bias[oc];
+            acc_t sum = bias[oc];
 
             for (int ic = 0; ic < 32; ic++) {
                 for (int k = 0; k < 5; k++) {
@@ -194,7 +194,7 @@ void conv1d_32_64_k5_l25(
                 }
             }
 
-            out[oc][t] = sum;
+            out[oc][t] = (data_t)sum;
         }
     }
 }
@@ -214,7 +214,7 @@ void conv1d_64_128_k3_l12(
     for (int oc = 0; oc < 128; oc++) {
         for (int t = 0; t < 12; t++) {
 #pragma HLS PIPELINE II=1
-            data_t sum = bias[oc];
+            acc_t sum = bias[oc];
 
             for (int ic = 0; ic < 64; ic++) {
                 for (int k = 0; k < 3; k++) {
@@ -229,7 +229,7 @@ void conv1d_64_128_k3_l12(
                 }
             }
 
-            out[oc][t] = sum;
+            out[oc][t] = (data_t)sum;
         }
     }
 }
@@ -282,11 +282,11 @@ void global_avgpool1d_128x12_to_128(
 
     for (int c = 0; c < 128; c++) {
 #pragma HLS PIPELINE II=1
-        data_t sum = 0;
+        acc_t sum = 0;
         for (int t = 0; t < 12; t++) {
             sum += in[c][t];
         }
-        out[c] = sum * inv12;
+        out[c] = (data_t)(sum * inv12);
     }
 }
 
@@ -302,11 +302,11 @@ void fc_128_to_6(
 #pragma HLS INLINE off
     for (int i = 0; i < 6; i++) {
 #pragma HLS PIPELINE II=1
-        data_t sum = bias[i];
+        acc_t sum = bias[i];
         for (int j = 0; j < 128; j++) {
             sum += weights[i][j] * in[j];
         }
-        out[i] = sum;
+        out[i] = (data_t)sum;
     }
 }
 

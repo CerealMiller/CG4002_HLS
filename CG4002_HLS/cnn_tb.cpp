@@ -60,13 +60,24 @@ int main() {
             out_logits[i] = axis_to_data(out_pkt);
         }
 
-        // Record Statistics
+        // Record Statistics & Print Per-Sample Prediction vs Actual
         if (true_label >= 0 && true_label < NUM_CLASSES) {
-            confusion_matrix[true_label][predicted_class]++;
-            if (predicted_class == true_label) {
-                correct_predictions++;
-            }
             total_samples++;
+            bool is_correct = (predicted_class == true_label);
+
+            if (is_correct) {
+                correct_predictions++;
+                std::cout << "[PASS] ";
+            } else {
+                std::cout << "[FAIL] ";
+            }
+
+            std::cout << "Sample " << std::setw(3) << total_samples
+                      << " | Predicted: " << predicted_class << " (" << std::left << std::setw(20) << CLASS_NAMES[predicted_class] << ")"
+                      << " | Actual: " << true_label << " (" << std::left << std::setw(20) << CLASS_NAMES[true_label] << ")"
+                      << std::right << std::endl;
+
+            confusion_matrix[true_label][predicted_class]++;
         }
     }
 

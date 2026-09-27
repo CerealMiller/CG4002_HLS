@@ -3,8 +3,8 @@
 
 #include <ap_fixed.h>
 
-// Using ap_fixed for HLS optimization (16-bit word, 6-bit integer)
-typedef ap_fixed<16, 6> data_t;
+// Using ap_fixed for HLS optimization (16-bit word, 8-bit integer)
+typedef ap_fixed<16, 8> data_t;
 typedef ap_fixed<32, 12> acc_t;
 
 // ReLU

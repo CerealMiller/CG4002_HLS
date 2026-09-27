@@ -1,108 +1,154 @@
 #include <iostream>
-#include "./cnn_basic_ops.hpp"
+#include <fstream>
+#include <iomanip>
+#include <cmath>
+#include "hls_stream.h"
+#include "ap_axi_sdata.h"
+#include "cnn_inference.hpp"
 
 using namespace std;
 
-int not_main() {
-    // --------------------------------------------
-    // Test ReLU scalar
-    // --------------------------------------------
-    cout << "Testing relu(x):" << endl;
-    cout << "relu(-3) = " << relu(-3) << endl;
-    cout << "relu( 2) = " << relu( 2) << endl;
-    cout << endl;
+// Match top module packet type definition
+typedef ap_axiu<32, 0, 0, 0> axis_t;
 
-    // --------------------------------------------
-    // Test normalize_9
-    // --------------------------------------------
-    data_t in9[9]      = {1,2,3,4,5,6,7,8,9};
-    data_t mean9[9]    = {1,1,1,1,1,1,1,1,1};
-    data_t invstd9[9]  = {1,1,1,1,1,1,1,1,1};
-    data_t out9[9];
+#define INPUT_MAX_WORDS 450
+#define OUTPUT_WORDS    6
 
-    normalize_9(in9, mean9, invstd9, out9);
+int main() {
+    int errors = 0;
 
-    cout << "Testing normalize_9:" << endl;
-    for (int i = 0; i < 9; i++) {
-        cout << out9[i] << " ";
+    // AXI Streams for DUT
+    hls::stream<axis_t> in_stream("in_stream");
+    hls::stream<axis_t> out_stream("out_stream");
+
+    // File handles for test vectors
+    ifstream input_file("test_inputs.txt");
+    ifstream label_file("test_labels.txt");
+
+    bool use_file_inputs = input_file.is_open() && label_file.is_open();
+
+    if (!use_file_inputs) {
+        cout << "[WARNING] Could not open 'test_inputs.txt' or 'test_labels.txt'." << endl;
+        cout << "[INFO] Running single synthetic sample test case..." << endl;
+    } else {
+        cout << "[INFO] Successfully loaded test vector files." << endl;
     }
-    cout << endl << endl;
 
-    // --------------------------------------------
-    // Test maxpool1d_32x50_to_32x25
-    // --------------------------------------------
-    data_t mp_in[32][50];
-    data_t mp_out[32][25];
+    cout << "==================================================" << endl;
+    cout << " Starting HLS AXI-Stream CNN Inference Testbench  " << endl;
+    cout << "==================================================" << endl;
 
-    for (int c = 0; c < 32; c++) {
-        for (int t = 0; t < 50; t++) {
-            mp_in[c][t] = t;
+    int test_case_cnt = 0;
+    int correct_predictions = 0;
+
+    // Run until EOF or exactly 1 loop if using synthetic data
+    while (true) {
+        int expected_label = 0;
+        int raw_sample_hex = 0;
+
+        if (use_file_inputs) {
+            if (!(label_file >> expected_label)) break; // EOF reached
+        } else {
+            if (test_case_cnt >= 1) break; // End single synthetic run
+            expected_label = 3; // Arbitrary target label for synthetic test
+        }
+
+        test_case_cnt++;
+
+        // -------------------------------------------------
+        // 1. Pack 450 samples into Input AXI-Stream
+        // -------------------------------------------------
+        for (int i = 0; i < INPUT_MAX_WORDS; i++) {
+            axis_t in_pkt;
+
+            if (use_file_inputs) {
+                input_file >> hex >> raw_sample_hex;
+                in_pkt.data = (ap_int<16>)raw_sample_hex;
+            } else {
+                // Generate deterministic synthetic data
+                in_pkt.data = (ap_int<16>)(i % 100);
+            }
+
+            in_pkt.keep = -1; // 0xF: All byte lanes valid
+            in_pkt.strb = -1;
+            in_pkt.last = (i == INPUT_MAX_WORDS - 1) ? 1 : 0; // Assert TLAST on 450th word
+
+            in_stream.write(in_pkt);
+        }
+
+        // -------------------------------------------------
+        // 2. Execute Top-Level HLS Design Under Test (DUT)
+        // -------------------------------------------------
+        cnn_inference(in_stream, out_stream);
+
+        // -------------------------------------------------
+        // 3. Unpack 6 Output Logits & Verify TLAST
+        // -------------------------------------------------
+        data_t received_logits[OUTPUT_WORDS];
+        data_t max_logit = -9999.0;
+        int predicted_class = 0;
+
+        for (int i = 0; i < OUTPUT_WORDS; i++) {
+            if (out_stream.empty()) {
+                cout << "[ERROR] Test Case " << test_case_cnt 
+                     << ": out_stream underflow at word " << i << endl;
+                return 1;
+            }
+
+            axis_t out_pkt = out_stream.read();
+            
+            // Extract logit value from low 16-bits
+            ap_int<16> raw_logit = (ap_int<16>)out_pkt.data(15, 0);
+            received_logits[i] = (data_t)raw_logit;
+
+            // Argmax Tracking
+            if (i == 0 || received_logits[i] > max_logit) {
+                max_logit = received_logits[i];
+                predicted_class = i;
+            }
+
+            // Verify AXI-Stream TLAST assertion timing
+            bool expected_last = (i == OUTPUT_WORDS - 1);
+            if (out_pkt.last != expected_last) {
+                cout << "[ERROR] TLAST mismatch at index " << i 
+                     << " (Got: " << out_pkt.last << ", Expected: " << expected_last << ")" << endl;
+                errors++;
+            }
+        }
+
+        // -------------------------------------------------
+        // 4. Accuracy Evaluation
+        // -------------------------------------------------
+        if (predicted_class == expected_label) {
+            correct_predictions++;
+            cout << "[PASS] Test Case " << setfill(' ') << setw(3) << test_case_cnt 
+                 << " | Predicted: " << predicted_class 
+                 << " | Expected: " << expected_label << endl;
+        } else {
+            cout << "[FAIL] Test Case " << setfill(' ') << setw(3) << test_case_cnt 
+                 << " | Predicted: " << predicted_class 
+                 << " | Expected: " << expected_label << endl;
         }
     }
 
-    maxpool1d_32x50_to_32x25(mp_in, mp_out);
-
-    cout << "Testing maxpool1d_32x50_to_32x25, channel 0:" << endl;
-    for (int i = 0; i < 25; i++) {
-        cout << mp_out[0][i] << " ";
-    }
-    cout << endl << endl;
-
-    // --------------------------------------------
-    // Test global_avgpool1d_128x12_to_128
-    // --------------------------------------------
-    data_t gap_in[128][12];
-    data_t gap_out[128];
-
-    for (int c = 0; c < 128; c++) {
-        for (int t = 0; t < 12; t++) {
-            gap_in[c][t] = 1.0;
-        }
+    if (use_file_inputs) {
+        input_file.close();
+        label_file.close();
     }
 
-    global_avgpool1d_128x12_to_128(gap_in, gap_out);
-
-    cout << "Testing global_avgpool, first 5 outputs:" << endl;
-    for (int i = 0; i < 5; i++) {
-        cout << gap_out[i] << " ";
+    // -------------------------------------------------
+    // Final Summary & Return Status for Vitis C-Sim
+    // -------------------------------------------------
+    cout << "==================================================" << endl;
+    cout << " C Simulation Complete" << endl;
+    cout << " Total Test Cases : " << test_case_cnt << endl;
+    cout << " Correct Hits     : " << correct_predictions << endl;
+    if (test_case_cnt > 0) {
+        double accuracy = (double)correct_predictions * 100.0 / test_case_cnt;
+        cout << " Accuracy         : " << fixed << setprecision(2) << accuracy << "%" << endl;
     }
-    cout << endl << endl;
+    cout << "==================================================" << endl;
 
-    // --------------------------------------------
-    // Test fc_128_to_6
-    // --------------------------------------------
-    data_t fc_in[128];
-    data_t fc_w[6][128];
-    data_t fc_b[6];
-    data_t fc_out[6];
-
-    for (int j = 0; j < 128; j++) {
-        fc_in[j] = 1.0;
-    }
-
-    for (int i = 0; i < 6; i++) {
-        fc_b[i] = 0.0;
-        for (int j = 0; j < 128; j++) {
-            fc_w[i][j] = 1.0;
-        }
-    }
-
-    fc_128_to_6(fc_in, fc_w, fc_b, fc_out);
-
-    cout << "Testing fc_128_to_6:" << endl;
-    for (int i = 0; i < 6; i++) {
-        cout << fc_out[i] << " ";
-    }
-    cout << endl << endl;
-
-    // --------------------------------------------
-    // Test argmax_6
-    // --------------------------------------------
-    data_t logits[6] = {0.1, 0.5, -0.2, 1.7, 0.9, 0.3};
-    int pred = argmax_6(logits);
-
-    cout << "Testing argmax_6:" << endl;
-    cout << "Predicted index = " << pred << endl;
-
-    return 0;
+    // Vitis HLS C-Simulation requires returning 0 on success, non-zero on failure
+    return (errors > 0) ? 1 : 0;
 }
