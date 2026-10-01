@@ -6,12 +6,14 @@ void cnn_inference(
     hls::stream<axis_t> &out_stream,
     int &predicted_class
 ) {
-    // Top-Level Vivado AXI-Stream and Block Control Interfaces
+    // 1. AXI-Stream for high-throughput streaming I/O
     #pragma HLS INTERFACE mode=axis port=in_stream
     #pragma HLS INTERFACE mode=axis port=out_stream
-    #pragma HLS INTERFACE mode=ap_vld port=predicted_class
-    #pragma HLS INTERFACE mode=ap_ctrl_hs port=return
 
+    // 2. AXI-Lite Memory-Mapped Register Interface for PYNQ Control & Scalars
+    #pragma HLS INTERFACE mode=s_axilite port=predicted_class bundle=control
+    #pragma HLS INTERFACE mode=s_axilite port=return bundle=control
+    
     // Intermediate Buffers
     data_t input_2d[9][50];
     data_t input_norm[9][50];
@@ -33,7 +35,12 @@ void cnn_inference(
     data_t gap_out[128];
     data_t out_logits[6];
 
-    #pragma HLS ARRAY_PARTITION variable=input_2d dim=1 complete
+    // Partition channel dimensions to allow multi-MAC parallel reads
+    #pragma HLS ARRAY_PARTITION variable=input_2d type=cyclic factor=4 dim=1
+    #pragma HLS ARRAY_PARTITION variable=pool1_out type=cyclic factor=4 dim=1
+    #pragma HLS ARRAY_PARTITION variable=pool2_out type=cyclic factor=4 dim=1
+    #pragma HLS ARRAY_PARTITION variable=relu3_out type=cyclic factor=4 dim=1
+    #pragma HLS ARRAY_PARTITION variable=gap_out type=cyclic factor=4 dim=1
 
     // Stream in 450 samples (Interleaved: 50 time steps x 9 channels)
     read_input_loop: for (int t = 0; t < 50; t++) {

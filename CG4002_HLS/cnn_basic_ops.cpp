@@ -59,6 +59,7 @@ void normalize_9(
     for (int i = 0; i < 9; i++) {
 #pragma HLS PIPELINE II=1
         out[i] = (in[i] - mean[i]) * inv_std[i];
+        #pragma HLS BIND_OP variable=out op=mul impl=dsp
     }
 }
 
@@ -73,6 +74,7 @@ void normalize_9x50(
         for (int t = 0; t < 50; t++) {
 #pragma HLS PIPELINE II=1
             out[c][t] = (in[c][t] - mean[c]) * inv_std[c];
+            #pragma HLS BIND_OP variable=out op=mul impl=dsp
         }
     }
 }
@@ -91,6 +93,7 @@ void batchnorm1d_32x50(
         for (int t = 0; t < 50; t++) {
 #pragma HLS PIPELINE II=1
             out[c][t] = (in[c][t] - mean[c]) * inv_std[c] * gamma[c] + beta[c];
+            #pragma HLS BIND_OP variable=out op=mul impl=dsp
         }
     }
 }
@@ -108,6 +111,7 @@ void batchnorm1d_64x25(
         for (int t = 0; t < 25; t++) {
 #pragma HLS PIPELINE II=1
             out[c][t] = (in[c][t] - mean[c]) * inv_std[c] * gamma[c] + beta[c];
+            #pragma HLS BIND_OP variable=out op=mul impl=dsp
         }
     }
 }
@@ -125,6 +129,7 @@ void batchnorm1d_128x12(
         for (int t = 0; t < 12; t++) {
 #pragma HLS PIPELINE II=1
             out[c][t] = (in[c][t] - mean[c]) * inv_std[c] * gamma[c] + beta[c];
+            #pragma HLS BIND_OP variable=out op=mul impl=dsp
         }
     }
 }
@@ -156,6 +161,7 @@ void conv1d_9_32_k5_l50(
                     }
 
                     sum += weights[oc][ic][k] * x;
+                    #pragma HLS BIND_OP variable=sum op=mul impl=dsp
                 }
             }
 
@@ -191,6 +197,7 @@ void conv1d_32_64_k5_l25(
                     }
 
                     sum += weights[oc][ic][k] * x;
+                    #pragma HLS BIND_OP variable=sum op=mul impl=dsp
                 }
             }
 
@@ -226,6 +233,7 @@ void conv1d_64_128_k3_l12(
                     }
 
                     sum += weights[oc][ic][k] * x;
+                    #pragma HLS BIND_OP variable=sum op=mul impl=dsp
                 }
             }
 
@@ -287,6 +295,7 @@ void global_avgpool1d_128x12_to_128(
             sum += in[c][t];
         }
         out[c] = (data_t)(sum * inv12);
+        #pragma HLS BIND_OP variable=out op=mul impl=dsp
     }
 }
 
@@ -305,6 +314,7 @@ void fc_128_to_6(
         acc_t sum = bias[i];
         for (int j = 0; j < 128; j++) {
             sum += weights[i][j] * in[j];
+            #pragma HLS BIND_OP variable=sum op=mul impl=dsp
         }
         out[i] = (data_t)sum;
     }
